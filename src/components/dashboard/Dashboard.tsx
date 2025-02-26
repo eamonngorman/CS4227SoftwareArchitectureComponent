@@ -1,155 +1,181 @@
+import { useState, useEffect } from 'react';
 import {
+  Container,
   Grid,
   Paper,
   Typography,
   Box,
+  CircularProgress,
+  Card,
+  CardContent,
   List,
   ListItem,
   ListItemText,
-  Chip,
-  Card,
-  CardContent,
-  Button,
   Divider
 } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-// Mock data - would come from API in real application
-const mockUpcomingDeadlines = [
-  { id: 1, task: 'Submit Research Proposal', project: 'AI Research Project', date: '2024-03-15' },
-  { id: 2, task: 'Review Data Analysis', project: 'Climate Change Study', date: '2024-03-20' },
-  { id: 3, task: 'Milestone Report', project: 'AI Research Project', date: '2024-03-25' }
-];
+interface DashboardStats {
+  totalUsers: number;
+  activeProjects: number;
+  pendingReviews: number;
+  recentActivities: any[];
+}
 
-const mockRecentActivities = [
-  { id: 1, action: 'Updated milestone', project: 'AI Research Project', time: '2 hours ago' },
-  { id: 2, action: 'Added new task', project: 'Climate Change Study', time: '5 hours ago' },
-  { id: 3, action: 'Received review', project: 'AI Research Project', time: '1 day ago' }
-];
+interface UserSummary {
+  user: {
+    id: number;
+    username: string;
+    firstName: string;
+    lastName: string;
+  };
+  projectCount: number;
+  reviewCount: number;
+}
 
 const Dashboard = () => {
-  return (
-    <Box>
-      {/* Welcome Section */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" gutterBottom>
-          Welcome to Your Research Dashboard
-        </Typography>
-        <Typography variant="subtitle1" color="text.secondary">
-          Track your research projects, deadlines, and activities
-        </Typography>
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [userSummary, setUserSummary] = useState<UserSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        // Get dashboard stats
+        const statsResponse = await fetch('http://localhost:8080/api/dashboard/stats', {
+          credentials: 'include'
+        });
+        
+        if (!statsResponse.ok) {
+          throw new Error('Failed to fetch dashboard stats');
+        }
+        
+        const statsData = await statsResponse.json();
+        setStats(statsData);
+
+        // Get user summary - for now using ID 1, later we'll get the logged-in user's ID
+        const summaryResponse = await fetch('http://localhost:8080/api/dashboard/user-summary/1', {
+          credentials: 'include'
+        });
+
+        if (!summaryResponse.ok) {
+          throw new Error('Failed to fetch user summary');
+        }
+
+        const summaryData = await summaryResponse.json();
+        setUserSummary(summaryData);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <CircularProgress />
       </Box>
+    );
+  }
 
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
+        <Typography color="error">{error}</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Grid container spacing={3}>
-        {/* Quick Actions */}
+        {/* Welcome Section */}
         <Grid item xs={12}>
-          <Paper sx={{ p: 2, display: 'flex', gap: 2 }}>
-            <Button
-              variant="contained"
-              component={Link}
-              to="/projects/new"
-            >
-              New Project
-            </Button>
-            <Button
-              variant="outlined"
-              component={Link}
-              to="/reviews"
-            >
-              Review Projects
-            </Button>
-            <Button
-              variant="outlined"
-              component={Link}
-              to="/projects"
-            >
-              View All Projects
-            </Button>
-          </Paper>
-        </Grid>
-
-        {/* Project Overview */}
-        <Grid item xs={12} md={8}>
-          <Paper sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              Active Projects Overview
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography component="h1" variant="h4" color="primary" gutterBottom>
+              Welcome{userSummary?.user.firstName ? `, ${userSummary.user.firstName}` : ''}!
             </Typography>
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5">2</Typography>
-                    <Typography color="text.secondary">Active Projects</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h5">5</Typography>
-                    <Typography color="text.secondary">Pending Reviews</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            </Grid>
           </Paper>
         </Grid>
 
-        {/* Upcoming Deadlines */}
+        {/* Stats Cards */}
         <Grid item xs={12} md={4}>
-          <Paper sx={{ p: 2, height: '100%' }}>
-            <Typography variant="h6" gutterBottom>
-              Upcoming Deadlines
-            </Typography>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Total Users</Typography>
+              <Typography variant="h3">{stats?.totalUsers || 0}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Active Projects</Typography>
+              <Typography variant="h3">{stats?.activeProjects || 0}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6">Pending Reviews</Typography>
+              <Typography variant="h3">{stats?.pendingReviews || 0}</Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* User Summary */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>Your Summary</Typography>
             <List>
-              {mockUpcomingDeadlines.map((deadline) => (
-                <ListItem key={deadline.id} divider>
-                  <ListItemText
-                    primary={deadline.task}
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary">
-                          {deadline.project}
-                        </Typography>
-                        <Chip
-                          label={deadline.date}
-                          size="small"
-                          color="primary"
-                          sx={{ mt: 1 }}
-                        />
-                      </>
-                    }
-                  />
-                </ListItem>
-              ))}
+              <ListItem>
+                <ListItemText 
+                  primary="Projects" 
+                  secondary={`You have ${userSummary?.projectCount || 0} active projects`} 
+                />
+              </ListItem>
+              <Divider />
+              <ListItem>
+                <ListItemText 
+                  primary="Reviews" 
+                  secondary={`You have ${userSummary?.reviewCount || 0} pending reviews`} 
+                />
+              </ListItem>
             </List>
           </Paper>
         </Grid>
 
         {/* Recent Activities */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>
-              Recent Activities
-            </Typography>
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>Recent Activities</Typography>
             <List>
-              {mockRecentActivities.map((activity) => (
-                <ListItem key={activity.id}>
-                  <ListItemText
-                    primary={activity.action}
-                    secondary={
-                      <>
-                        {activity.project} • {activity.time}
-                      </>
-                    }
-                  />
+              {stats?.recentActivities.length === 0 ? (
+                <ListItem>
+                  <ListItemText primary="No recent activities" />
                 </ListItem>
-              ))}
+              ) : (
+                stats?.recentActivities.map((activity, index) => (
+                  <ListItem key={index}>
+                    <ListItemText primary={activity.description} secondary={activity.date} />
+                  </ListItem>
+                ))
+              )}
             </List>
           </Paper>
         </Grid>
       </Grid>
-    </Box>
+    </Container>
   );
 };
 
