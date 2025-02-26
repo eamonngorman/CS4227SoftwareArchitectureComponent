@@ -98,7 +98,7 @@ const ProjectList = () => {
         <Button
           variant="contained"
           color="primary"
-          onClick={() => navigate('/projects/create')}
+          onClick={() => navigate('/projects/new')}
         >
           Create New Project
         </Button>
