@@ -127,11 +127,24 @@ const Register = () => {
     }
 
     try {
-      // Here you would typically make an API call to register
-      // For now, we'll simulate a successful registration
-      // const response = await registerUser(formData);
-      
-      // Simulate successful registration
+      const response = await fetch('http://localhost:8080/api/users/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.email,
+          password: formData.password,
+          firstName: formData.firstName,
+          lastName: formData.lastName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Registration failed');
+      }
+
+      const data = await response.json();
       navigate('/login');
     } catch (error) {
       setRegisterError('Registration failed. Please try again.');

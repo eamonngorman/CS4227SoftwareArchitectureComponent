@@ -69,13 +69,24 @@ const Login = () => {
     }
 
     try {
-      // Here you would typically make an API call to authenticate
-      // For now, we'll simulate a successful login
-      // const response = await loginUser(formData);
-      
-      // Simulate successful login
+      const response = await fetch('http://localhost:8080/api/users/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username: formData.email,
+          password: formData.password
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
       localStorage.setItem('isAuthenticated', 'true');
-      navigate('/dashboard');
+      navigate('/');
     } catch (error) {
       setLoginError('Invalid email or password. Please try again.');
     }
