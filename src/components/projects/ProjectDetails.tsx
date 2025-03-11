@@ -17,6 +17,7 @@ import {
   DialogActions,
   DialogContentText
 } from '@mui/material';
+import StatusHistoryList from './StatusHistoryList';
 
 interface Project {
   id: number;
@@ -235,6 +236,12 @@ const ProjectDetails = () => {
                 Delete Project
               </Button>
             </Box>
+          </Grid>
+        </Grid>
+
+        <Grid container spacing={2}>
+          <Grid item xs={12}>
+            <StatusHistoryList projectId={Number(id)} />
           </Grid>
         </Grid>
       </Paper>
