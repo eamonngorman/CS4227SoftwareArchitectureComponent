@@ -1,8 +1,9 @@
 package com.example.research.controller;
 
 import java.util.List;
-import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
@@ -17,13 +18,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.research.model.Project;
 import com.example.research.model.ProjectStatus;
+import com.example.research.model.User;
 import com.example.research.repository.ProjectRepository;
 import com.example.research.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/projects")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(origins = "http://localhost:5173")
 public class ProjectController {
+    private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
 
     @Autowired
     private ProjectRepository projectRepository;
@@ -33,11 +36,15 @@ public class ProjectController {
 
     @GetMapping
     public ResponseEntity<List<Project>> getAllProjects() {
-        return ResponseEntity.ok(projectRepository.findAll());
+        logger.info("Fetching all projects");
+        List<Project> projects = projectRepository.findAll();
+        logger.info("Found {} projects", projects.size());
+        return ResponseEntity.ok(projects);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getProject(@PathVariable Long id) {
+    public ResponseEntity<?> getProjectById(@PathVariable Long id) {
+        logger.info("Fetching project with id: {}", id);
         return projectRepository.findById(id)
                 .map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -45,28 +52,32 @@ public class ProjectController {
 
     @PostMapping
     public ResponseEntity<?> createProject(@RequestBody Project project) {
-        // For now, we'll use user ID 1. Later, we'll get this from authentication
-        var user = userRepository.findById(1L);
-        if (user.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("message", "User not found"));
+        try {
+            // Get the default user (ID 1)
+            User defaultUser = userRepository.findById(1L)
+                .orElseThrow(() -> new RuntimeException("Default user not found"));
+            
+            project.setOwner(defaultUser);
+            logger.info("Creating new project: {}", project.getTitle());
+            Project savedProject = projectRepository.save(project);
+            logger.info("Project created successfully with id: {}", savedProject.getId());
+            return ResponseEntity.ok(savedProject);
+        } catch (Exception e) {
+            logger.error("Error creating project: {}", e.getMessage());
+            return ResponseEntity.badRequest()
+                .body("Failed to create project: " + e.getMessage());
         }
-        
-        project.setOwner(user.get());
-        Project savedProject = projectRepository.save(project);
-        return ResponseEntity.ok(savedProject);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateProject(@PathVariable Long id, @RequestBody Project projectDetails) {
+    public ResponseEntity<?> updateProject(@PathVariable Long id, @RequestBody Project project) {
+        logger.info("Updating project with id: {}", id);
         return projectRepository.findById(id)
                 .map(existingProject -> {
-                    existingProject.setTitle(projectDetails.getTitle());
-                    existingProject.setDescription(projectDetails.getDescription());
-                    existingProject.setStatus(projectDetails.getStatus());
-                    existingProject.setStartDate(projectDetails.getStartDate());
-                    existingProject.setEndDate(projectDetails.getEndDate());
-                    
-                    Project updatedProject = projectRepository.save(existingProject);
+                    project.setId(id);
+                    project.setOwner(existingProject.getOwner());
+                    Project updatedProject = projectRepository.save(project);
+                    logger.info("Project updated successfully");
                     return ResponseEntity.ok(updatedProject);
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -74,25 +85,33 @@ public class ProjectController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteProject(@PathVariable Long id) {
+        logger.info("Deleting project with id: {}", id);
         return projectRepository.findById(id)
                 .map(project -> {
                     projectRepository.delete(project);
+                    logger.info("Project deleted successfully");
                     return ResponseEntity.ok().build();
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/user/{userId}")
-    public ResponseEntity<List<Project>> getUserProjects(@PathVariable Long userId) {
+    public ResponseEntity<List<Project>> getProjectsByUser(@PathVariable Long userId) {
+        logger.info("Fetching projects for user: {}", userId);
         return userRepository.findById(userId)
-                .map(user -> ResponseEntity.ok(projectRepository.findByOwner(user)))
+                .map(user -> {
+                    List<Project> projects = projectRepository.findByOwner(user);
+                    logger.info("Found {} projects for user", projects.size());
+                    return ResponseEntity.ok(projects);
+                })
                 .orElse(ResponseEntity.notFound().build());
     }
 
     @GetMapping("/status/{status}")
     public ResponseEntity<List<Project>> getProjectsByStatus(@PathVariable ProjectStatus status) {
-        return ResponseEntity.ok(projectRepository.findAll().stream()
-                .filter(project -> project.getStatus() == status)
-                .toList());
+        logger.info("Fetching projects with status: {}", status);
+        List<Project> projects = projectRepository.findByStatus(status);
+        logger.info("Found {} projects with status {}", projects.size(), status);
+        return ResponseEntity.ok(projects);
     }
 } 

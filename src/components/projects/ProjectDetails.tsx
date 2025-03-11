@@ -1,236 +1,262 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box,
+  Container,
   Paper,
   Typography,
-  Grid,
+  Box,
   Chip,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  LinearProgress,
+  Grid,
+  CircularProgress,
+  Alert,
   Divider,
-  Card,
-  CardContent,
-  IconButton
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  DialogContentText
 } from '@mui/material';
-import { useParams } from 'react-router-dom';
 
-// Mock data - would come from API in real application
-const mockProject = {
-  id: 1,
-  title: 'AI Research Project',
-  description: 'Research on machine learning applications in healthcare, focusing on early disease detection using neural networks.',
-  status: 'In Progress',
-  startDate: '2024-01-15',
-  endDate: '2024-12-31',
-  progress: 35,
-  institution: 'University of Technology',
-  principalInvestigator: 'Dr. Jane Smith',
-  team: ['Dr. Jane Smith', 'John Doe', 'Sarah Wilson'],
-  milestones: [
-    {
-      id: 1,
-      title: 'Literature Review',
-      status: 'Completed',
-      dueDate: '2024-02-28',
-      progress: 100
-    },
-    {
-      id: 2,
-      title: 'Data Collection',
-      status: 'In Progress',
-      dueDate: '2024-04-30',
-      progress: 45
-    },
-    {
-      id: 3,
-      title: 'Initial Analysis',
-      status: 'Not Started',
-      dueDate: '2024-06-30',
-      progress: 0
-    }
-  ],
-  tasks: [
-    {
-      id: 1,
-      title: 'Review Recent Publications',
-      status: 'Completed',
-      assignedTo: 'Sarah Wilson',
-      dueDate: '2024-02-15'
-    },
-    {
-      id: 2,
-      title: 'Data Preprocessing',
-      status: 'In Progress',
-      assignedTo: 'John Doe',
-      dueDate: '2024-03-20'
-    },
-    {
-      id: 3,
-      title: 'Model Architecture Design',
-      status: 'Not Started',
-      assignedTo: 'Dr. Jane Smith',
-      dueDate: '2024-04-15'
-    }
-  ]
+interface Project {
+  id: number;
+  title: string;
+  description: string;
+  status: string;
+  startDate: string;
+  endDate: string;
+  owner: {
+    id: number;
+    username: string;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+const getStatusColor = (status: string) => {
+  switch (status) {
+    case 'DRAFT':
+      return 'default';
+    case 'IN_REVIEW':
+      return 'warning';
+    case 'APPROVED':
+      return 'success';
+    case 'IN_PROGRESS':
+      return 'info';
+    case 'COMPLETED':
+      return 'success';
+    case 'ON_HOLD':
+      return 'warning';
+    case 'CANCELLED':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+const formatDate = (dateString: string) => {
+  return new Date(dateString).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
 };
 
 const ProjectDetails = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const [project, setProject] = useState<Project | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // In real app, would fetch project data based on id
-  
+  useEffect(() => {
+    const fetchProjectDetails = async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/projects/${id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch project details');
+        }
+        const data = await response.json();
+        setProject(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProjectDetails();
+  }, [id]);
+
+  const handleDelete = async () => {
+    try {
+      const response = await fetch(`http://localhost:8080/api/projects/${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete project');
+      }
+
+      navigate('/projects', { state: { message: 'Project deleted successfully' } });
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : 'Failed to delete project');
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
+  if (!project) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="info">Project not found</Alert>
+      </Container>
+    );
+  }
+
   return (
-    <Box>
-      {/* Project Header */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      {deleteError && (
+        <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>
+      )}
+      <Paper sx={{ p: 4 }}>
+        <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
           <Box>
             <Typography variant="h4" gutterBottom>
-              {mockProject.title}
+              {project.title}
             </Typography>
-            <Typography variant="body1" color="text.secondary" paragraph>
-              {mockProject.description}
-            </Typography>
+            <Chip
+              label={project.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+              color={getStatusColor(project.status)}
+              sx={{ mb: 2 }}
+            />
           </Box>
-          <Button variant="contained" color="primary">
-            Edit Project
+          <Button
+            variant="outlined"
+            onClick={() => navigate('/projects')}
+          >
+            Back to Projects
           </Button>
         </Box>
 
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" color="text.secondary">Status</Typography>
-            <Chip 
-              label={mockProject.status} 
-              color={mockProject.status === 'In Progress' ? 'primary' : 'default'}
-            />
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" color="text.secondary">Timeline</Typography>
-            <Typography variant="body2">
-              {mockProject.startDate} - {mockProject.endDate}
+        <Grid container spacing={4}>
+          <Grid item xs={12} md={8}>
+            <Typography variant="h6" gutterBottom>
+              Description
             </Typography>
+            <Typography paragraph>
+              {project.description}
+            </Typography>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Timeline
+            </Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Start Date
+                </Typography>
+                <Typography>
+                  {formatDate(project.startDate)}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  End Date
+                </Typography>
+                <Typography>
+                  {formatDate(project.endDate)}
+                </Typography>
+              </Grid>
+            </Grid>
           </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" color="text.secondary">Institution</Typography>
-            <Typography variant="body2">{mockProject.institution}</Typography>
-          </Grid>
-          <Grid item xs={12} sm={6} md={3}>
-            <Typography variant="subtitle2" color="text.secondary">Principal Investigator</Typography>
-            <Typography variant="body2">{mockProject.principalInvestigator}</Typography>
+
+          <Grid item xs={12} md={4}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="h6" gutterBottom>
+                Project Details
+              </Typography>
+              
+              <Typography variant="subtitle2" color="text.secondary">
+                Owner
+              </Typography>
+              <Typography paragraph>
+                {project.owner.username}
+              </Typography>
+
+              <Typography variant="subtitle2" color="text.secondary">
+                Created
+              </Typography>
+              <Typography paragraph>
+                {formatDate(project.createdAt)}
+              </Typography>
+
+              <Typography variant="subtitle2" color="text.secondary">
+                Last Updated
+              </Typography>
+              <Typography>
+                {formatDate(project.updatedAt)}
+              </Typography>
+            </Paper>
+
+            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                onClick={() => navigate(`/projects/edit/${id}`)}
+              >
+                Edit Project
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                fullWidth
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                Delete Project
+              </Button>
+            </Box>
           </Grid>
         </Grid>
-
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-            Overall Progress
-          </Typography>
-          <LinearProgress 
-            variant="determinate" 
-            value={mockProject.progress} 
-            sx={{ height: 8, borderRadius: 4 }}
-          />
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            {mockProject.progress}% Complete
-          </Typography>
-        </Box>
       </Paper>
 
-      <Grid container spacing={3}>
-        {/* Milestones Section */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Milestones</Typography>
-              <Button variant="outlined" size="small">Add Milestone</Button>
-            </Box>
-            <List>
-              {mockProject.milestones.map((milestone) => (
-                <ListItem key={milestone.id} sx={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', mb: 1 }}>
-                    <Typography variant="subtitle1">{milestone.title}</Typography>
-                    <Chip 
-                      label={milestone.status} 
-                      size="small"
-                      color={milestone.status === 'Completed' ? 'success' : 'default'}
-                    />
-                  </Box>
-                  <Box sx={{ width: '100%', mb: 1 }}>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={milestone.progress} 
-                      sx={{ height: 4, borderRadius: 2 }}
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Due: {milestone.dueDate}
-                  </Typography>
-                  <Divider sx={{ my: 1 }} />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
-
-        {/* Tasks Section */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-              <Typography variant="h6">Tasks</Typography>
-              <Button variant="outlined" size="small">Add Task</Button>
-            </Box>
-            <List>
-              {mockProject.tasks.map((task) => (
-                <ListItem key={task.id}>
-                  <ListItemText
-                    primary={task.title}
-                    secondary={
-                      <Box>
-                        <Typography variant="body2" component="span">
-                          Assigned to: {task.assignedTo}
-                        </Typography>
-                        <br />
-                        <Typography variant="body2" component="span">
-                          Due: {task.dueDate}
-                        </Typography>
-                      </Box>
-                    }
-                  />
-                  <Chip 
-                    label={task.status} 
-                    size="small"
-                    color={
-                      task.status === 'Completed' ? 'success' : 
-                      task.status === 'In Progress' ? 'primary' : 
-                      'default'
-                    }
-                  />
-                </ListItem>
-              ))}
-            </List>
-          </Paper>
-        </Grid>
-
-        {/* Team Section */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>Team Members</Typography>
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-              {mockProject.team.map((member, index) => (
-                <Chip 
-                  key={index}
-                  label={member}
-                  variant="outlined"
-                />
-              ))}
-              <Button size="small">+ Add Member</Button>
-            </Box>
-          </Paper>
-        </Grid>
-      </Grid>
-    </Box>
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+      >
+        <DialogTitle>Delete Project</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Are you sure you want to delete this project? This action cannot be undone.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+          <Button onClick={handleDelete} color="error" variant="contained">
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Container>
   );
 };
 

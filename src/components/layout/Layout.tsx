@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   AppBar,
   Box,
@@ -12,22 +13,15 @@ import {
   ListItemText,
   Toolbar,
   Typography,
-  Button,
-  Divider,
-  Menu,
-  MenuItem,
-  Avatar
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  Description as ProjectsIcon,
-  RateReview as ReviewsIcon,
-  Business as InstitutionIcon,
-  Settings as SettingsIcon,
-  AccountCircle as AccountIcon
-} from '@mui/icons-material';
-import { useNavigate, useLocation } from 'react-router-dom';
+import MenuIcon from '@mui/icons-material/Menu';
+import DashboardIcon from '@mui/icons-material/Dashboard';
+import ProjectsIcon from '@mui/icons-material/Assignment';
+import ReviewsIcon from '@mui/icons-material/RateReview';
+import InstitutionIcon from '@mui/icons-material/Business';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 interface LayoutProps {
   children: ReactNode;
@@ -39,69 +33,38 @@ const Layout = ({ children }: LayoutProps) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
-  };
-
-  const handleProfileMenuOpen = (event: React.MouseEvent<HTMLElement>) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = async () => {
-    try {
-      const response = await fetch('http://localhost:8080/api/auth/logout', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!response.ok) {
-        throw new Error('Logout failed');
-      }
-
-      // Clear any local storage or state here if needed
-      localStorage.removeItem('user');
-      
-      // Redirect to login page
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Still redirect to login even if the API call fails
-      navigate('/login');
-    }
   };
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/' },
     { text: 'Projects', icon: <ProjectsIcon />, path: '/projects' },
     { text: 'Reviews', icon: <ReviewsIcon />, path: '/reviews' },
-    { text: 'Institution', icon: <InstitutionIcon />, path: '/institution' },
-    { text: 'Settings', icon: <SettingsIcon />, path: '/settings' },
-  ];
+   ];
 
   const drawer = (
     <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Research Portal
-        </Typography>
-      </Toolbar>
-      <Divider />
+      <Toolbar />
       <List>
         {menuItems.map((item) => (
-          <ListItemButton
-            key={item.text}
-            onClick={() => navigate(item.path)}
-            selected={location.pathname === item.path}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItemButton>
+          <ListItem key={item.text} disablePadding>
+            <ListItemButton
+              onClick={() => {
+                navigate(item.path);
+                if (isMobile) {
+                  handleDrawerToggle();
+                }
+              }}
+              selected={location.pathname === item.path}
+            >
+              <ListItemIcon>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.text} />
+            </ListItemButton>
+          </ListItem>
         ))}
       </List>
     </div>
@@ -127,49 +90,9 @@ const Layout = ({ children }: LayoutProps) => {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            {menuItems.find(item => item.path === location.pathname)?.text || 'Research Portal'}
+          <Typography variant="h6" noWrap component="div">
+            Research Management System
           </Typography>
-          
-          <IconButton
-            size="large"
-            edge="end"
-            aria-label="account of current user"
-            aria-controls="menu-appbar"
-            aria-haspopup="true"
-            onClick={handleProfileMenuOpen}
-            color="inherit"
-          >
-            <AccountIcon />
-          </IconButton>
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
-          >
-            <MenuItem onClick={() => {
-              handleProfileMenuClose();
-              navigate('/settings');
-            }}>
-              Profile
-            </MenuItem>
-            <MenuItem onClick={() => {
-              handleProfileMenuClose();
-              handleLogout();
-            }}>
-              Logout
-            </MenuItem>
-          </Menu>
         </Toolbar>
       </AppBar>
       <Box

@@ -28,22 +28,21 @@ public class Project {
     @Column(nullable = false)
     private String title;
 
-    @Column(length = 1000)
+    @Column(columnDefinition = "TEXT")
     private String description;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "user_id", nullable = false)
-    private User owner;
-
-    @Column(nullable = false)
     @Enumerated(EnumType.STRING)
-    private ProjectStatus status = ProjectStatus.DRAFT;
+    private ProjectStatus status;
 
     @Column(name = "start_date")
     private LocalDate startDate;
 
     @Column(name = "end_date")
     private LocalDate endDate;
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "owner_id", nullable = true)
+    private User owner;
 
     @Column(name = "created_at")
     private LocalDate createdAt;

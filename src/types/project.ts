@@ -1,7 +1,5 @@
 export enum ProjectStatus {
-  DRAFT = 'DRAFT',
-  IN_REVIEW = 'IN_REVIEW',
-  APPROVED = 'APPROVED',
+  PENDING = 'PENDING',
   IN_PROGRESS = 'IN_PROGRESS',
   COMPLETED = 'COMPLETED',
   ON_HOLD = 'ON_HOLD',

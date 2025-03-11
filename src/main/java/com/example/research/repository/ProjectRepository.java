@@ -12,7 +12,7 @@ import com.example.research.model.User;
 @Repository
 public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByOwner(User owner);
-    List<Project> findByOwnerAndStatus(User owner, ProjectStatus status);
-    long countByOwner(User owner);
+    List<Project> findByStatus(ProjectStatus status);
     long countByStatus(ProjectStatus status);
+    long countByOwner(User owner);
 } 

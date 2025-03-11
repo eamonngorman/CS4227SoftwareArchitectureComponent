@@ -1,228 +1,196 @@
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
-  Box,
+  Container,
   Paper,
   Typography,
+  Box,
   TextField,
   Button,
+  Grid,
+  CircularProgress,
+  Alert,
   Rating,
   FormControl,
-  FormLabel,
-  RadioGroup,
-  FormControlLabel,
-  Radio,
-  Divider,
-  Alert,
-  Grid,
-  Chip
+  InputLabel,
+  Select,
+  MenuItem
 } from '@mui/material';
-import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
 
-// Mock data - would come from API in real application
-const mockReviewData = {
-  id: 1,
-  projectTitle: 'Machine Learning in Healthcare',
-  institution: 'Medical Research Institute',
-  type: 'Project Review',
-  deadline: '2024-04-15',
-  description: 'Comprehensive review needed for methodology and preliminary results.',
-  criteria: [
-    'Research Methodology',
-    'Data Analysis',
-    'Innovation',
-    'Technical Implementation',
-    'Impact Potential'
-  ]
-};
+interface Review {
+  id: number;
+  projectTitle: string;
+  projectDescription: string;
+  rating: number;
+  comments: string;
+  status: string;
+}
 
 const ReviewForm = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [review, setReview] = useState<Review | null>(null);
   const [formData, setFormData] = useState({
-    overallRating: 0,
-    methodology: '',
-    strengths: '',
-    weaknesses: '',
-    recommendations: '',
-    confidentialNotes: '',
-    decision: ''
+    rating: 0,
+    comments: '',
+    status: 'PENDING'
   });
 
-  const handleSubmit = (event: React.FormEvent) => {
-    event.preventDefault();
-    // In real app, would submit to API
-    console.log('Submitting review:', formData);
-    navigate('/reviews');
+  useEffect(() => {
+    const fetchReview = async () => {
+      try {
+        const response = await fetch(`http://localhost:8080/api/reviews/${id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch review');
+        }
+        const data = await response.json();
+        setReview(data);
+        if (data.rating) {
+          setFormData({
+            rating: data.rating,
+            comments: data.comments || '',
+            status: data.status
+          });
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'An error occurred');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReview();
+  }, [id]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      const response = await fetch(`http://localhost:8080/api/reviews/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update review');
+      }
+
+      navigate('/reviews', { state: { message: 'Review submitted successfully' } });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to submit review');
+    }
   };
 
-  const handleChange = (field: string) => (event: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({
-      ...formData,
-      [field]: event.target.value
-    });
-  };
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="error">{error}</Alert>
+      </Container>
+    );
+  }
+
+  if (!review) {
+    return (
+      <Container maxWidth="md" sx={{ mt: 4 }}>
+        <Alert severity="info">Review not found</Alert>
+      </Container>
+    );
+  }
 
   return (
-    <Box component="form" onSubmit={handleSubmit}>
-      {/* Header */}
-      <Paper sx={{ p: 3, mb: 3 }}>
+    <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
+      <Paper sx={{ p: 4 }}>
         <Typography variant="h4" gutterBottom>
-          Peer Review
+          Review Form
         </Typography>
-        <Typography variant="h6" color="text.secondary" gutterBottom>
-          {mockReviewData.projectTitle}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-          <Chip label={mockReviewData.type} />
-          <Chip label={`Due: ${mockReviewData.deadline}`} variant="outlined" />
+        
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom>
+            Project Details
+          </Typography>
+          <Typography variant="subtitle1" gutterBottom>
+            {review.projectTitle}
+          </Typography>
+          <Typography variant="body1" color="text.secondary" paragraph>
+            {review.projectDescription}
+          </Typography>
         </Box>
-        <Typography variant="body1">
-          {mockReviewData.description}
-        </Typography>
-      </Paper>
 
-      {/* Review Form */}
-      <Paper sx={{ p: 3 }}>
-        <Grid container spacing={3}>
-          {/* Overall Rating */}
-          <Grid item xs={12}>
-            <Typography component="legend" variant="h6" gutterBottom>
-              Overall Rating
-            </Typography>
-            <Rating
-              value={formData.overallRating}
-              onChange={(event, newValue) => {
-                setFormData({ ...formData, overallRating: newValue || 0 });
-              }}
-              size="large"
-            />
-          </Grid>
-
-          <Grid item xs={12}>
-            <Divider sx={{ my: 2 }} />
-          </Grid>
-
-          {/* Evaluation Criteria */}
-          {mockReviewData.criteria.map((criterion) => (
-            <Grid item xs={12} key={criterion}>
-              <Typography variant="subtitle1" gutterBottom>
-                {criterion} Evaluation
-              </Typography>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Box sx={{ mb: 2 }}>
+                <Typography component="legend">Rating</Typography>
+                <Rating
+                  value={formData.rating}
+                  onChange={(event, newValue) => {
+                    setFormData(prev => ({ ...prev, rating: newValue || 0 }));
+                  }}
+                  size="large"
+                />
+              </Box>
+            </Grid>
+            
+            <Grid item xs={12}>
               <TextField
                 fullWidth
+                label="Comments"
                 multiline
-                rows={3}
-                placeholder={`Evaluate the ${criterion.toLowerCase()}...`}
-                variant="outlined"
+                rows={4}
+                value={formData.comments}
+                onChange={(e) => setFormData(prev => ({ ...prev, comments: e.target.value }))}
+                required
               />
             </Grid>
-          ))}
 
-          {/* Strengths and Weaknesses */}
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Strengths"
-              multiline
-              rows={4}
-              value={formData.strengths}
-              onChange={handleChange('strengths')}
-              placeholder="List the main strengths..."
-            />
-          </Grid>
-          <Grid item xs={12} md={6}>
-            <TextField
-              fullWidth
-              label="Weaknesses"
-              multiline
-              rows={4}
-              value={formData.weaknesses}
-              onChange={handleChange('weaknesses')}
-              placeholder="List the main weaknesses..."
-            />
-          </Grid>
+            <Grid item xs={12}>
+              <FormControl fullWidth>
+                <InputLabel>Status</InputLabel>
+                <Select
+                  value={formData.status}
+                  label="Status"
+                  onChange={(e) => setFormData(prev => ({ ...prev, status: e.target.value }))}
+                >
+                  <MenuItem value="PENDING">Pending</MenuItem>
+                  <MenuItem value="IN_PROGRESS">In Progress</MenuItem>
+                  <MenuItem value="COMPLETED">Completed</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
 
-          {/* Recommendations */}
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Recommendations"
-              multiline
-              rows={4}
-              value={formData.recommendations}
-              onChange={handleChange('recommendations')}
-              placeholder="Provide specific recommendations for improvement..."
-            />
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate('/reviews')}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                >
+                  Submit Review
+                </Button>
+              </Box>
+            </Grid>
           </Grid>
-
-          {/* Confidential Notes */}
-          <Grid item xs={12}>
-            <TextField
-              fullWidth
-              label="Confidential Notes to Editor"
-              multiline
-              rows={3}
-              value={formData.confidentialNotes}
-              onChange={handleChange('confidentialNotes')}
-              placeholder="Add any confidential notes (not shared with authors)..."
-            />
-          </Grid>
-
-          {/* Review Decision */}
-          <Grid item xs={12}>
-            <FormControl component="fieldset">
-              <FormLabel component="legend">Review Decision</FormLabel>
-              <RadioGroup
-                value={formData.decision}
-                onChange={handleChange('decision')}
-              >
-                <FormControlLabel 
-                  value="accept" 
-                  control={<Radio />} 
-                  label="Accept" 
-                />
-                <FormControlLabel 
-                  value="minorRevisions" 
-                  control={<Radio />} 
-                  label="Accept with Minor Revisions" 
-                />
-                <FormControlLabel 
-                  value="majorRevisions" 
-                  control={<Radio />} 
-                  label="Major Revisions Required" 
-                />
-                <FormControlLabel 
-                  value="reject" 
-                  control={<Radio />} 
-                  label="Reject" 
-                />
-              </RadioGroup>
-            </FormControl>
-          </Grid>
-
-          {/* Submit Buttons */}
-          <Grid item xs={12}>
-            <Box sx={{ display: 'flex', gap: 2, mt: 2 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                type="submit"
-                size="large"
-              >
-                Submit Review
-              </Button>
-              <Button
-                variant="outlined"
-                onClick={() => navigate('/reviews')}
-                size="large"
-              >
-                Cancel
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
+        </form>
       </Paper>
-    </Box>
+    </Container>
   );
 };
 

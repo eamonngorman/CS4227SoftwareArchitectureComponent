@@ -45,7 +45,6 @@ const ProjectCreate = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(formData)
       });
 
@@ -54,7 +53,7 @@ const ProjectCreate = () => {
       }
 
       const data = await response.json();
-      navigate('/projects'); // Navigate to projects list after creation
+      navigate('/projects');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
     }

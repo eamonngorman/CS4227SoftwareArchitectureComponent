@@ -33,12 +33,8 @@ interface Project {
 
 const getStatusColor = (status: ProjectStatus) => {
   switch (status) {
-    case ProjectStatus.DRAFT:
-      return 'default';
-    case ProjectStatus.IN_REVIEW:
+    case ProjectStatus.PENDING:
       return 'warning';
-    case ProjectStatus.APPROVED:
-      return 'success';
     case ProjectStatus.IN_PROGRESS:
       return 'info';
     case ProjectStatus.COMPLETED:
@@ -148,12 +144,21 @@ const ProjectList = () => {
                   <TableCell>{project.endDate}</TableCell>
                   <TableCell>{project.owner.username}</TableCell>
                   <TableCell>
-                    <Button
-                      size="small"
-                      onClick={() => navigate(`/projects/${project.id}`)}
-                    >
-                      View
-                    </Button>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/projects/${project.id}`)}
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="small"
+                        color="primary"
+                        onClick={() => navigate(`/projects/${project.id}/edit`)}
+                      >
+                        Edit
+                      </Button>
+                    </Box>
                   </TableCell>
                 </TableRow>
               ))

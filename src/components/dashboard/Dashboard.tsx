@@ -4,16 +4,15 @@ import {
   Grid,
   Paper,
   Typography,
-  Box,
-  CircularProgress,
   Card,
   CardContent,
   List,
   ListItem,
   ListItemText,
-  Divider
+  Divider,
+  Box,
+  CircularProgress
 } from '@mui/material';
-import { useNavigate } from 'react-router-dom';
 
 interface DashboardStats {
   totalUsers: number;
@@ -38,7 +37,6 @@ const Dashboard = () => {
   const [userSummary, setUserSummary] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
 
   useEffect(() => {
     const fetchDashboardData = async () => {
@@ -46,29 +44,22 @@ const Dashboard = () => {
         setLoading(true);
         setError(null);
 
-        // Get dashboard stats
-        const statsResponse = await fetch('http://localhost:8080/api/dashboard/stats', {
-          credentials: 'include'
-        });
-        
+        // Fetch dashboard stats
+        const statsResponse = await fetch('http://localhost:8080/api/dashboard/stats');
         if (!statsResponse.ok) {
           throw new Error('Failed to fetch dashboard stats');
         }
-        
         const statsData = await statsResponse.json();
         setStats(statsData);
 
-        // Get user summary - for now using ID 1, later we'll get the logged-in user's ID
-        const summaryResponse = await fetch('http://localhost:8080/api/dashboard/user-summary/1', {
-          credentials: 'include'
-        });
-
+        // Fetch user summary (using ID 1 for demo)
+        const summaryResponse = await fetch('http://localhost:8080/api/dashboard/user-summary/1');
         if (!summaryResponse.ok) {
           throw new Error('Failed to fetch user summary');
         }
-
         const summaryData = await summaryResponse.json();
         setUserSummary(summaryData);
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'An error occurred');
       } finally {
@@ -160,16 +151,16 @@ const Dashboard = () => {
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" gutterBottom>Recent Activities</Typography>
             <List>
-              {stats?.recentActivities.length === 0 ? (
-                <ListItem>
-                  <ListItemText primary="No recent activities" />
-                </ListItem>
-              ) : (
-                stats?.recentActivities.map((activity, index) => (
+              {stats?.recentActivities && stats.recentActivities.length > 0 ? (
+                stats.recentActivities.map((activity, index) => (
                   <ListItem key={index}>
                     <ListItemText primary={activity.description} secondary={activity.date} />
                   </ListItem>
                 ))
+              ) : (
+                <ListItem>
+                  <ListItemText primary="No recent activities" />
+                </ListItem>
               )}
             </List>
           </Paper>
