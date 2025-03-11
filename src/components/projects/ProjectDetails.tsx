@@ -15,7 +15,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  DialogContentText
+  DialogContentText,
+  TextField
 } from '@mui/material';
 import StatusHistoryList from './StatusHistoryList';
 
@@ -26,6 +27,8 @@ interface Project {
   status: string;
   startDate: string;
   endDate: string;
+  deadline: string | null;
+  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
   owner: {
     id: number;
     username: string;
@@ -53,6 +56,24 @@ const getStatusColor = (status: string) => {
     default:
       return 'default';
   }
+};
+
+const getDeadlineStatusColor = (status: string) => {
+  switch (status) {
+    case 'ON_TRACK':
+      return 'success';
+    case 'APPROACHING':
+      return 'warning';
+    case 'OVERDUE':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+const formatStatus = (status: string | null) => {
+  if (!status) return 'Unknown';
+  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
 };
 
 const formatDate = (dateString: string) => {
@@ -143,7 +164,7 @@ const ProjectDetails = () => {
               {project.title}
             </Typography>
             <Chip
-              label={project.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+              label={formatStatus(project.status)}
               color={getStatusColor(project.status)}
               sx={{ mb: 2 }}
             />
@@ -188,6 +209,29 @@ const ProjectDetails = () => {
                 </Typography>
               </Grid>
             </Grid>
+
+            <Grid container spacing={2} sx={{ mt: 2 }}>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Deadline
+                </Typography>
+                <Typography>
+                  {project.deadline ? formatDate(project.deadline) : 'No deadline set'}
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Deadline Status
+                </Typography>
+                <Box sx={{ mt: 1 }}>
+                  <Chip
+                    label={project.deadlineStatus ? project.deadlineStatus.replace('_', ' ') : 'NO DEADLINE'}
+                    color={getDeadlineStatusColor(project.deadlineStatus || 'NO_DEADLINE')}
+                    size="small"
+                  />
+                </Box>
+              </Grid>
+            </Grid>
           </Grid>
 
           <Grid item xs={12} md={4}>
@@ -223,7 +267,15 @@ const ProjectDetails = () => {
                 variant="contained"
                 color="primary"
                 fullWidth
-                onClick={() => navigate(`/projects/edit/${id}`)}
+                onClick={() => {
+                  const editPath = `/projects/${id}/edit`;
+                  console.log('Current project ID:', id);
+                  console.log('Attempting navigation to:', editPath);
+                  navigate(editPath, {
+                    state: { project },
+                    replace: false
+                  });
+                }}
               >
                 Edit Project
               </Button>

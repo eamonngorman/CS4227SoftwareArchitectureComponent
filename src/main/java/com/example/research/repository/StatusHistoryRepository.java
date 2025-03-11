@@ -9,5 +9,5 @@ import com.example.research.model.StatusHistory;
 
 @Repository
 public interface StatusHistoryRepository extends JpaRepository<StatusHistory, Long> {
-    List<StatusHistory> findByProjectIdOrderByChangedAtDesc(Long projectId);
+    List<StatusHistory> findTop10ByOrderByChangedAtDesc();
 } 

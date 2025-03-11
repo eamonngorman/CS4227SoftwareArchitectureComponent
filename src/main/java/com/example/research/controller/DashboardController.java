@@ -1,6 +1,5 @@
 package com.example.research.controller;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -16,14 +15,16 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.research.dto.DashboardStatsDTO;
 import com.example.research.model.Project;
 import com.example.research.model.ProjectStatus;
 import com.example.research.repository.ProjectRepository;
 import com.example.research.repository.UserRepository;
+import com.example.research.service.DashboardService;
 
 @RestController
 @RequestMapping("/api/dashboard")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class DashboardController {
     private static final Logger logger = LoggerFactory.getLogger(DashboardController.class);
 
@@ -33,39 +34,12 @@ public class DashboardController {
     @Autowired
     private ProjectRepository projectRepository;
 
-    @GetMapping("/stats")
-    public ResponseEntity<?> getDashboardStats() {
-        Map<String, Object> stats = new HashMap<>();
-        
-        try {
-            // Get counts from repositories
-            long totalUsers = userRepository.count();
-            long totalProjects = projectRepository.count();
-            
-            // Get all projects and count by status
-            List<Project> allProjects = projectRepository.findAll();
-            
-            // Log counts by status
-            Map<ProjectStatus, Long> countsByStatus = allProjects.stream()
-                .collect(Collectors.groupingBy(Project::getStatus, Collectors.counting()));
-            
-            logger.info("Project counts by status: {}", countsByStatus);
-            
-            // Count active projects (IN_PROGRESS)
-            long activeProjects = countsByStatus.getOrDefault(ProjectStatus.IN_PROGRESS, 0L);
-            
-            stats.put("totalUsers", totalUsers);
-            stats.put("activeProjects", activeProjects);
-            stats.put("totalProjects", totalProjects);
-            stats.put("pendingReviews", 0); // To be implemented with review system
-            stats.put("recentActivities", new ArrayList<>()); // To be implemented
-            
-            logger.info("Dashboard stats: {}", stats);
-            return ResponseEntity.ok(stats);
-        } catch (Exception e) {
-            logger.error("Error getting dashboard stats: {}", e.getMessage());
-            return ResponseEntity.badRequest().body("Failed to fetch dashboard stats");
-        }
+    @Autowired
+    private DashboardService dashboardService;
+
+    @GetMapping
+    public DashboardStatsDTO getDashboardStats() {
+        return dashboardService.getDashboardStats();
     }
 
     @GetMapping("/user-summary/{userId}")

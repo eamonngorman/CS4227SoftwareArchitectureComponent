@@ -15,4 +15,5 @@ public interface ProjectRepository extends JpaRepository<Project, Long> {
     List<Project> findByStatus(ProjectStatus status);
     long countByStatus(ProjectStatus status);
     long countByOwner(User owner);
+    List<Project> findByDeadlineIsNotNullOrderByDeadline();
 } 

@@ -11,14 +11,36 @@ import {
   ListItemText,
   Divider,
   Box,
-  CircularProgress
+  CircularProgress,
+  Chip,
+  Button
 } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+import { ProjectStatus } from '../../types/project';
+
+interface StatusChange {
+  projectId: number;
+  projectTitle: string;
+  oldStatus: ProjectStatus;
+  newStatus: ProjectStatus;
+  changedAt: string;
+  changedBy: string;
+}
+
+interface UpcomingDeadline {
+  projectId: number;
+  projectTitle: string;
+  deadline: string;
+  daysUntilDeadline: number;
+  status: 'ON_TRACK' | 'APPROACHING' | 'OVERDUE';
+}
 
 interface DashboardStats {
   totalUsers: number;
   activeProjects: number;
   pendingReviews: number;
-  recentActivities: any[];
+  recentStatusChanges: StatusChange[];
+  upcomingDeadlines: UpcomingDeadline[];
 }
 
 interface UserSummary {
@@ -32,7 +54,42 @@ interface UserSummary {
   reviewCount: number;
 }
 
+const getStatusColor = (status: ProjectStatus) => {
+  switch (status) {
+    case ProjectStatus.PENDING:
+      return 'warning';
+    case ProjectStatus.IN_PROGRESS:
+      return 'info';
+    case ProjectStatus.COMPLETED:
+      return 'success';
+    case ProjectStatus.ON_HOLD:
+      return 'warning';
+    case ProjectStatus.CANCELLED:
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+const getDeadlineStatusColor = (status: string) => {
+  switch (status) {
+    case 'ON_TRACK':
+      return 'success';
+    case 'APPROACHING':
+      return 'warning';
+    case 'OVERDUE':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+const formatStatus = (status: string) => {
+  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [userSummary, setUserSummary] = useState<UserSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,7 +102,7 @@ const Dashboard = () => {
         setError(null);
 
         // Fetch dashboard stats
-        const statsResponse = await fetch('http://localhost:8080/api/dashboard/stats');
+        const statsResponse = await fetch('http://localhost:8080/api/dashboard');
         if (!statsResponse.ok) {
           throw new Error('Failed to fetch dashboard stats');
         }
@@ -124,8 +181,104 @@ const Dashboard = () => {
           </Card>
         </Grid>
 
-        {/* User Summary */}
+        {/* Recent Status Changes */}
         <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>Recent Status Changes</Typography>
+            <List>
+              {stats?.recentStatusChanges && stats.recentStatusChanges.length > 0 ? (
+                stats.recentStatusChanges.map((change, index) => (
+                  <ListItem 
+                    key={index}
+                    sx={{ 
+                      flexDirection: 'column', 
+                      alignItems: 'flex-start',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => navigate(`/projects/${change.projectId}`)}
+                  >
+                    <Typography variant="subtitle1" component="div" gutterBottom>
+                      {change.projectTitle}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                      <Chip
+                        label={formatStatus(change.oldStatus)}
+                        color={getStatusColor(change.oldStatus)}
+                        size="small"
+                      />
+                      <Typography>→</Typography>
+                      <Chip
+                        label={formatStatus(change.newStatus)}
+                        color={getStatusColor(change.newStatus)}
+                        size="small"
+                      />
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Changed by {change.changedBy} on {new Date(change.changedAt).toLocaleDateString()}
+                    </Typography>
+                    {index < stats.recentStatusChanges.length - 1 && <Divider sx={{ width: '100%', my: 1 }} />}
+                  </ListItem>
+                ))
+              ) : (
+                <ListItem>
+                  <ListItemText primary="No recent status changes" />
+                </ListItem>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
+        {/* Upcoming Deadlines */}
+        <Grid item xs={12} md={6}>
+          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h6" gutterBottom>Upcoming Deadlines</Typography>
+            <List>
+              {stats?.upcomingDeadlines && stats.upcomingDeadlines.length > 0 ? (
+                stats.upcomingDeadlines.map((deadline, index) => (
+                  <ListItem 
+                    key={index}
+                    sx={{ 
+                      flexDirection: 'column', 
+                      alignItems: 'flex-start',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => navigate(`/projects/${deadline.projectId}`)}
+                  >
+                    <Typography variant="subtitle1" component="div" gutterBottom>
+                      {deadline.projectTitle}
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1 }}>
+                      <Chip
+                        label={formatStatus(deadline.status)}
+                        color={getDeadlineStatusColor(deadline.status)}
+                        size="small"
+                      />
+                      <Typography variant="body2">
+                        {deadline.daysUntilDeadline === 0 
+                          ? "Due today"
+                          : deadline.daysUntilDeadline < 0 
+                            ? `Overdue by ${Math.abs(deadline.daysUntilDeadline)} days`
+                            : `Due in ${deadline.daysUntilDeadline} days`
+                        }
+                      </Typography>
+                    </Box>
+                    <Typography variant="caption" color="text.secondary">
+                      Deadline: {new Date(deadline.deadline).toLocaleDateString()}
+                    </Typography>
+                    {index < stats.upcomingDeadlines.length - 1 && <Divider sx={{ width: '100%', my: 1 }} />}
+                  </ListItem>
+                ))
+              ) : (
+                <ListItem>
+                  <ListItemText primary="No upcoming deadlines" />
+                </ListItem>
+              )}
+            </List>
+          </Paper>
+        </Grid>
+
+        {/* User Summary */}
+        <Grid item xs={12}>
           <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="h6" gutterBottom>Your Summary</Typography>
             <List>
@@ -142,26 +295,6 @@ const Dashboard = () => {
                   secondary={`You have ${userSummary?.reviewCount || 0} pending reviews`} 
                 />
               </ListItem>
-            </List>
-          </Paper>
-        </Grid>
-
-        {/* Recent Activities */}
-        <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2, display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" gutterBottom>Recent Activities</Typography>
-            <List>
-              {stats?.recentActivities && stats.recentActivities.length > 0 ? (
-                stats.recentActivities.map((activity, index) => (
-                  <ListItem key={index}>
-                    <ListItemText primary={activity.description} secondary={activity.date} />
-                  </ListItem>
-                ))
-              ) : (
-                <ListItem>
-                  <ListItemText primary="No recent activities" />
-                </ListItem>
-              )}
             </List>
           </Paper>
         </Grid>

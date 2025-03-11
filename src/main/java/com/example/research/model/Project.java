@@ -1,6 +1,7 @@
 package com.example.research.model;
 
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,7 +19,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
-import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -57,10 +57,19 @@ public class Project {
     @Column(name = "updated_at")
     private LocalDate updatedAt;
 
-    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
-    @OrderBy("changedAt DESC")
+    @OneToMany(mappedBy = "project", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @JsonManagedReference
-    private List<StatusHistory> statusHistory = new ArrayList<>();
+    private List<StatusHistory> statusHistory;
+
+    @Column(name = "deadline")
+    private LocalDate deadline;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "deadline_status")
+    private DeadlineStatus deadlineStatus;
+
+    @Column(name = "reminder_sent")
+    private Boolean reminderSent = false;
 
     @PrePersist
     protected void onCreate() {
@@ -73,11 +82,57 @@ public class Project {
         updatedAt = LocalDate.now();
     }
 
-    public void addStatusHistory(ProjectStatus previousStatus, ProjectStatus newStatus) {
+    public void addStatusHistory(ProjectStatus previousStatus, ProjectStatus newStatus, User changedBy) {
         StatusHistory history = new StatusHistory();
         history.setProject(this);
-        history.setPreviousStatus(previousStatus);
+        history.setOldStatus(previousStatus);
         history.setNewStatus(newStatus);
+        history.setChangedBy(changedBy);
+        if (this.statusHistory == null) {
+            this.statusHistory = new ArrayList<>();
+        }
         this.statusHistory.add(history);
+    }
+
+    public void updateDeadlineStatus() {
+        if (deadline == null) {
+            deadlineStatus = DeadlineStatus.NO_DEADLINE;
+            return;
+        }
+
+        LocalDate today = LocalDate.now();
+        long daysUntilDeadline = ChronoUnit.DAYS.between(today, deadline);
+
+        if (daysUntilDeadline < 0) {
+            deadlineStatus = DeadlineStatus.OVERDUE;
+        } else if (daysUntilDeadline <= 7) {
+            deadlineStatus = DeadlineStatus.APPROACHING;
+        } else {
+            deadlineStatus = DeadlineStatus.ON_TRACK;
+        }
+    }
+
+    public List<StatusHistory> getStatusHistory() {
+        return statusHistory;
+    }
+
+    public void setStatusHistory(List<StatusHistory> statusHistory) {
+        this.statusHistory = statusHistory;
+    }
+
+    public LocalDate getDeadline() {
+        return deadline;
+    }
+
+    public void setDeadline(LocalDate deadline) {
+        this.deadline = deadline;
+    }
+
+    public DeadlineStatus getDeadlineStatus() {
+        return deadlineStatus;
+    }
+
+    public void setDeadlineStatus(DeadlineStatus deadlineStatus) {
+        this.deadlineStatus = deadlineStatus;
     }
 } 

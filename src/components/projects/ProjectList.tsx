@@ -25,6 +25,8 @@ interface Project {
   status: ProjectStatus;
   startDate: string;
   endDate: string;
+  deadline: string | null;
+  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
   owner: {
     id: number;
     username: string;
@@ -48,6 +50,24 @@ const getStatusColor = (status: ProjectStatus) => {
   }
 };
 
+const getDeadlineStatusColor = (status: string) => {
+  switch (status) {
+    case 'ON_TRACK':
+      return 'success';
+    case 'APPROACHING':
+      return 'warning';
+    case 'OVERDUE':
+      return 'error';
+    default:
+      return 'default';
+  }
+};
+
+const formatStatus = (status: string | null) => {
+  if (!status) return 'Unknown';
+  return status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase());
+};
+
 const ProjectList = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -57,18 +77,34 @@ const ProjectList = () => {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
+        console.log('Fetching projects...');
         const response = await fetch('http://localhost:8080/api/projects', {
           credentials: 'include'
         });
 
+        console.log('Response status:', response.status);
+        const responseText = await response.text();
+        console.log('Response text:', responseText);
+
         if (!response.ok) {
-          throw new Error('Failed to fetch projects');
+          throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`);
         }
 
-        const data = await response.json();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error('Failed to parse JSON:', parseError);
+          throw new Error('Invalid JSON response from server');
+        }
+
+        console.log('Parsed projects:', data);
         setProjects(data);
+        setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
+        console.error('Error fetching projects:', err);
+        setError(err instanceof Error ? err.message : 'An error occurred while fetching projects');
+        setProjects([]); // Reset projects on error
       } finally {
         setLoading(false);
       }
@@ -79,9 +115,11 @@ const ProjectList = () => {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+          <CircularProgress />
+        </Box>
+      </Container>
     );
   }
 
@@ -115,16 +153,18 @@ const ProjectList = () => {
               <TableCell>Status</TableCell>
               <TableCell>Start Date</TableCell>
               <TableCell>End Date</TableCell>
+              <TableCell>Deadline</TableCell>
+              <TableCell>Deadline Status</TableCell>
               <TableCell>Owner</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {projects.length === 0 ? (
+            {(!projects || projects.length === 0) ? (
               <TableRow>
-                <TableCell colSpan={7} align="center">
+                <TableCell colSpan={9} align="center">
                   <Typography variant="body1" color="textSecondary">
-                    No projects found. Create your first project!
+                    {error ? 'Error loading projects' : 'No projects found. Create your first project!'}
                   </Typography>
                 </TableCell>
               </TableRow>
@@ -135,14 +175,24 @@ const ProjectList = () => {
                   <TableCell>{project.description}</TableCell>
                   <TableCell>
                     <Chip
-                      label={project.status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, l => l.toUpperCase())}
+                      label={formatStatus(project.status)}
                       color={getStatusColor(project.status)}
                       size="small"
                     />
                   </TableCell>
                   <TableCell>{project.startDate}</TableCell>
                   <TableCell>{project.endDate}</TableCell>
-                  <TableCell>{project.owner.username}</TableCell>
+                  <TableCell>
+                    {project.deadline ? new Date(project.deadline).toLocaleDateString() : 'No deadline'}
+                  </TableCell>
+                  <TableCell>
+                    <Chip
+                      label={project.deadlineStatus ? project.deadlineStatus.replace('_', ' ') : 'NO DEADLINE'}
+                      color={getDeadlineStatusColor(project.deadlineStatus || 'NO_DEADLINE')}
+                      size="small"
+                    />
+                  </TableCell>
+                  <TableCell>{project.owner?.username || 'No owner'}</TableCell>
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button

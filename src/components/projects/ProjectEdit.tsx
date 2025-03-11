@@ -11,11 +11,14 @@ import {
   MenuItem,
   Typography,
   Alert,
-  CircularProgress
+  CircularProgress,
+  IconButton,
+  Tooltip
 } from '@mui/material';
 import { ProjectStatus } from '../../types/project';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import ClearIcon from '@mui/icons-material/Clear';
 
 interface Project {
   id: number;
@@ -24,6 +27,8 @@ interface Project {
   status: ProjectStatus;
   startDate: string;
   endDate: string;
+  deadline: string | null;
+  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
 }
 
 export default function ProjectEdit() {
@@ -78,6 +83,15 @@ export default function ProjectEdit() {
   const handleChange = (field: keyof Project, value: any) => {
     if (!project) return;
     setProject({ ...project, [field]: value });
+  };
+
+  const handleClearDeadline = () => {
+    if (!project) return;
+    setProject({
+      ...project,
+      deadline: null,
+      deadlineStatus: 'NO_DEADLINE'
+    });
   };
 
   if (loading) {
@@ -159,6 +173,24 @@ export default function ProjectEdit() {
             onChange={(date) => handleChange('endDate', date?.format('YYYY-MM-DD'))}
             sx={{ mt: 2, width: '100%' }}
           />
+
+          <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <DatePicker
+              label="Deadline"
+              value={project.deadline ? dayjs(project.deadline) : null}
+              onChange={(date) => handleChange('deadline', date?.format('YYYY-MM-DD') || null)}
+              sx={{ flex: 1 }}
+            />
+            <Tooltip title="Clear deadline">
+              <IconButton 
+                onClick={handleClearDeadline}
+                disabled={!project.deadline}
+                size="small"
+              >
+                <ClearIcon />
+              </IconButton>
+            </Tooltip>
+          </Box>
 
           <Box sx={{ mt: 3, display: 'flex', gap: 2 }}>
             <Button
