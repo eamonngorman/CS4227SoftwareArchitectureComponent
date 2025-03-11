@@ -18,13 +18,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.research.model.Project;
 import com.example.research.model.ProjectStatus;
-import com.example.research.model.User;
+import com.example.research.model.StatusHistory;
 import com.example.research.repository.ProjectRepository;
+import com.example.research.repository.StatusHistoryRepository;
 import com.example.research.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/projects")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 public class ProjectController {
     private static final Logger logger = LoggerFactory.getLogger(ProjectController.class);
 
@@ -34,16 +35,17 @@ public class ProjectController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private StatusHistoryRepository statusHistoryRepository;
+
     @GetMapping
-    public ResponseEntity<List<Project>> getAllProjects() {
+    public List<Project> getAllProjects() {
         logger.info("Fetching all projects");
-        List<Project> projects = projectRepository.findAll();
-        logger.info("Found {} projects", projects.size());
-        return ResponseEntity.ok(projects);
+        return projectRepository.findAll();
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> getProjectById(@PathVariable Long id) {
+    public ResponseEntity<Project> getProjectById(@PathVariable Long id) {
         logger.info("Fetching project with id: {}", id);
         return projectRepository.findById(id)
                 .map(ResponseEntity::ok)
@@ -51,34 +53,36 @@ public class ProjectController {
     }
 
     @PostMapping
-    public ResponseEntity<?> createProject(@RequestBody Project project) {
-        try {
-            // Get the default user (ID 1)
-            User defaultUser = userRepository.findById(1L)
-                .orElseThrow(() -> new RuntimeException("Default user not found"));
-            
-            project.setOwner(defaultUser);
-            logger.info("Creating new project: {}", project.getTitle());
-            Project savedProject = projectRepository.save(project);
-            logger.info("Project created successfully with id: {}", savedProject.getId());
-            return ResponseEntity.ok(savedProject);
-        } catch (Exception e) {
-            logger.error("Error creating project: {}", e.getMessage());
-            return ResponseEntity.badRequest()
-                .body("Failed to create project: " + e.getMessage());
-        }
+    public ResponseEntity<Project> createProject(@RequestBody Project project) {
+        logger.info("Creating new project");
+        project.setStatus(ProjectStatus.PENDING);
+        Project savedProject = projectRepository.save(project);
+        // Add initial status history
+        savedProject.addStatusHistory(null, ProjectStatus.PENDING);
+        return ResponseEntity.ok(savedProject);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateProject(@PathVariable Long id, @RequestBody Project project) {
+    public ResponseEntity<?> updateProject(@PathVariable Long id, @RequestBody Project updatedProject) {
         logger.info("Updating project with id: {}", id);
         return projectRepository.findById(id)
                 .map(existingProject -> {
-                    project.setId(id);
-                    project.setOwner(existingProject.getOwner());
-                    Project updatedProject = projectRepository.save(project);
+                    // If status is changing, record it in history
+                    if (existingProject.getStatus() != updatedProject.getStatus()) {
+                        logger.info("Status changing from {} to {}", existingProject.getStatus(), updatedProject.getStatus());
+                        existingProject.addStatusHistory(existingProject.getStatus(), updatedProject.getStatus());
+                    }
+                    
+                    // Update other fields
+                    existingProject.setTitle(updatedProject.getTitle());
+                    existingProject.setDescription(updatedProject.getDescription());
+                    existingProject.setStatus(updatedProject.getStatus());
+                    existingProject.setStartDate(updatedProject.getStartDate());
+                    existingProject.setEndDate(updatedProject.getEndDate());
+                    
+                    Project saved = projectRepository.save(existingProject);
                     logger.info("Project updated successfully");
-                    return ResponseEntity.ok(updatedProject);
+                    return ResponseEntity.ok(saved);
                 })
                 .orElse(ResponseEntity.notFound().build());
     }
@@ -89,7 +93,6 @@ public class ProjectController {
         return projectRepository.findById(id)
                 .map(project -> {
                     projectRepository.delete(project);
-                    logger.info("Project deleted successfully");
                     return ResponseEntity.ok().build();
                 })
                 .orElse(ResponseEntity.notFound().build());
@@ -113,5 +116,13 @@ public class ProjectController {
         List<Project> projects = projectRepository.findByStatus(status);
         logger.info("Found {} projects with status {}", projects.size(), status);
         return ResponseEntity.ok(projects);
+    }
+
+    @GetMapping("/{id}/status-history")
+    public ResponseEntity<List<StatusHistory>> getProjectStatusHistory(@PathVariable Long id) {
+        logger.info("Fetching status history for project with id: {}", id);
+        return projectRepository.findById(id)
+                .map(project -> ResponseEntity.ok(project.getStatusHistory()))
+                .orElse(ResponseEntity.notFound().build());
     }
 } 
