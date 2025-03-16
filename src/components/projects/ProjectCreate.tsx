@@ -11,51 +11,41 @@ import {
   Select,
   MenuItem,
   Alert,
-  SelectChangeEvent
+  SelectChangeEvent,
+  CircularProgress
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { ProjectStatus } from '../../types/project';
+import { useAppDispatch, useAppSelector } from '../../types/store';
+import { createProject, ProjectFormData } from '../../store/projectsSlice';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import dayjs from 'dayjs';
 
-interface ProjectFormData {
-  title: string;
-  description: string;
-  status: ProjectStatus;
-  startDate: string;
-  endDate: string;
-}
+const initialFormData: ProjectFormData = {
+  title: '',
+  description: '',
+  status: ProjectStatus.PENDING,
+  startDate: dayjs().format('YYYY-MM-DD'),
+  endDate: dayjs().add(1, 'month').format('YYYY-MM-DD'),
+  deadline: null
+};
 
 const ProjectCreate = () => {
   const navigate = useNavigate();
-  const [formData, setFormData] = useState<ProjectFormData>({
-    title: '',
-    description: '',
-    status: ProjectStatus.DRAFT,
-    startDate: '',
-    endDate: ''
-  });
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const [formData, setFormData] = useState<ProjectFormData>(initialFormData);
+  
+  const isLoading = useAppSelector((state) => state.projects.isLoading);
+  const error = useAppSelector((state) => state.projects.error);
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
-    setError(null);
 
     try {
-      const response = await fetch('http://localhost:8080/api/projects', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create project');
-      }
-
-      const data = await response.json();
+      await dispatch(createProject(formData)).unwrap();
       navigate('/projects');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
+      // Error handling is managed by Redux
     }
   };
 
@@ -74,6 +64,21 @@ const ProjectCreate = () => {
       status: event.target.value as ProjectStatus
     }));
   };
+
+  const handleDateChange = (field: 'startDate' | 'endDate' | 'deadline') => (date: dayjs.Dayjs | null) => {
+    setFormData(prev => ({
+      ...prev,
+      [field]: date ? date.format('YYYY-MM-DD') : null
+    }));
+  };
+
+  if (isLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
@@ -115,30 +120,35 @@ const ProjectCreate = () => {
               label="Status"
               onChange={handleStatusChange}
             >
-              {(Object.keys(ProjectStatus) as Array<keyof typeof ProjectStatus>).map((key) => (
-                <MenuItem key={key} value={ProjectStatus[key]}>
-                  {key.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
+              {Object.values(ProjectStatus).map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (l: string) => l.toUpperCase())}
                 </MenuItem>
               ))}
             </Select>
           </FormControl>
 
           <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
-            <TextField
-              type="date"
+            <DatePicker
               label="Start Date"
-              value={formData.startDate}
-              onChange={handleChange('startDate')}
-              InputLabelProps={{ shrink: true }}
+              value={dayjs(formData.startDate)}
+              onChange={handleDateChange('startDate')}
               sx={{ flex: 1 }}
             />
-            <TextField
-              type="date"
+            <DatePicker
               label="End Date"
-              value={formData.endDate}
-              onChange={handleChange('endDate')}
-              InputLabelProps={{ shrink: true }}
+              value={dayjs(formData.endDate)}
+              onChange={handleDateChange('endDate')}
               sx={{ flex: 1 }}
+            />
+          </Box>
+
+          <Box sx={{ mt: 2 }}>
+            <DatePicker
+              label="Deadline (Optional)"
+              value={formData.deadline ? dayjs(formData.deadline) : null}
+              onChange={handleDateChange('deadline')}
+              sx={{ width: '100%' }}
             />
           </Box>
 
@@ -148,6 +158,7 @@ const ProjectCreate = () => {
               variant="contained"
               color="primary"
               size="large"
+              disabled={isLoading}
             >
               Create Project
             </Button>
@@ -156,6 +167,7 @@ const ProjectCreate = () => {
               color="secondary"
               size="large"
               onClick={() => navigate('/projects')}
+              disabled={isLoading}
             >
               Cancel
             </Button>

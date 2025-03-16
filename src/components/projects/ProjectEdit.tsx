@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -15,86 +15,66 @@ import {
   IconButton,
   Tooltip
 } from '@mui/material';
-import { ProjectStatus } from '../../types/project';
+import { ProjectStatus, DeadlineStatus, Project } from '../../types/project';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 import ClearIcon from '@mui/icons-material/Clear';
-
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  status: ProjectStatus;
-  startDate: string;
-  endDate: string;
-  deadline: string | null;
-  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
-}
+import { useAppDispatch, useAppSelector } from '../../types/store';
+import { fetchProjectById, updateProject, selectProjectById } from '../../store/projectsSlice';
 
 export default function ProjectEdit() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [project, setProject] = useState<Project | null>(null);
+  const dispatch = useAppDispatch();
+  
+  const projectId = id ? parseInt(id) : 0;
+  const project = useAppSelector((state) => selectProjectById(projectId)(state));
+  const isLoading = useAppSelector((state) => state.projects.isLoading);
+  const error = useAppSelector((state) => state.projects.error);
+  
+  // Local state for form data
+  const [formData, setFormData] = useState<Project | null>(null);
 
   useEffect(() => {
-    fetchProject();
-  }, [id]);
-
-  const fetchProject = async () => {
-    try {
-      const response = await fetch(`http://localhost:8080/api/projects/${id}`);
-      if (!response.ok) {
-        throw new Error('Failed to fetch project');
-      }
-      const data = await response.json();
-      setProject(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred');
-    } finally {
-      setLoading(false);
+    if (projectId) {
+      dispatch(fetchProjectById(projectId));
     }
-  };
+  }, [dispatch, projectId]);
+
+  // Update form data when project changes
+  useEffect(() => {
+    if (project) {
+      setFormData(project);
+    }
+  }, [project]);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!project) return;
+    if (!formData) return;
 
     try {
-      const response = await fetch(`http://localhost:8080/api/projects/${id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(project),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to update project');
-      }
-
+      await dispatch(updateProject(formData)).unwrap();
       navigate('/projects');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update project');
+      // Error handling is managed by Redux
     }
   };
 
   const handleChange = (field: keyof Project, value: any) => {
-    if (!project) return;
-    setProject({ ...project, [field]: value });
+    if (!formData) return;
+    setFormData({ ...formData, [field]: value });
   };
 
   const handleClearDeadline = () => {
-    if (!project) return;
-    setProject({
-      ...project,
+    if (!formData) return;
+    setFormData({
+      ...formData,
       deadline: null,
-      deadlineStatus: 'NO_DEADLINE'
+      deadlineStatus: DeadlineStatus.NO_DEADLINE
     });
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
@@ -110,7 +90,7 @@ export default function ProjectEdit() {
     );
   }
 
-  if (!project) {
+  if (!formData) {
     return (
       <Container maxWidth="sm">
         <Alert severity="error">Project not found</Alert>
@@ -129,7 +109,7 @@ export default function ProjectEdit() {
           <TextField
             fullWidth
             label="Title"
-            value={project.title}
+            value={formData.title}
             onChange={(e) => handleChange('title', e.target.value)}
             margin="normal"
             required
@@ -138,7 +118,7 @@ export default function ProjectEdit() {
           <TextField
             fullWidth
             label="Description"
-            value={project.description}
+            value={formData.description}
             onChange={(e) => handleChange('description', e.target.value)}
             margin="normal"
             multiline
@@ -148,7 +128,7 @@ export default function ProjectEdit() {
           <FormControl fullWidth margin="normal">
             <InputLabel>Status</InputLabel>
             <Select
-              value={project.status}
+              value={formData.status}
               label="Status"
               onChange={(e) => handleChange('status', e.target.value)}
             >
@@ -162,14 +142,14 @@ export default function ProjectEdit() {
 
           <DatePicker
             label="Start Date"
-            value={dayjs(project.startDate)}
+            value={dayjs(formData.startDate)}
             onChange={(date) => handleChange('startDate', date?.format('YYYY-MM-DD'))}
             sx={{ mt: 2, width: '100%' }}
           />
 
           <DatePicker
             label="End Date"
-            value={dayjs(project.endDate)}
+            value={dayjs(formData.endDate)}
             onChange={(date) => handleChange('endDate', date?.format('YYYY-MM-DD'))}
             sx={{ mt: 2, width: '100%' }}
           />
@@ -177,14 +157,14 @@ export default function ProjectEdit() {
           <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
             <DatePicker
               label="Deadline"
-              value={project.deadline ? dayjs(project.deadline) : null}
+              value={formData.deadline ? dayjs(formData.deadline) : null}
               onChange={(date) => handleChange('deadline', date?.format('YYYY-MM-DD') || null)}
               sx={{ flex: 1 }}
             />
             <Tooltip title="Clear deadline">
               <IconButton 
                 onClick={handleClearDeadline}
-                disabled={!project.deadline}
+                disabled={!formData.deadline}
                 size="small"
               >
                 <ClearIcon />

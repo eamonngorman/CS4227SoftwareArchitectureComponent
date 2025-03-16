@@ -13,25 +13,24 @@ import {
   TableRow,
   Chip,
   CircularProgress,
-  Alert
+  Alert,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Grid
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { ProjectStatus } from '../../types/project';
-
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  status: ProjectStatus;
-  startDate: string;
-  endDate: string;
-  deadline: string | null;
-  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
-  owner: {
-    id: number;
-    username: string;
-  };
-}
+import { useAppDispatch, useAppSelector } from '../../types/store';
+import { 
+  fetchProjects, 
+  updateProjectStatus, 
+  setStatusFilter, 
+  setSearchTerm,
+  selectFilteredProjects 
+} from '../../store/projectsSlice';
 
 const getStatusColor = (status: ProjectStatus) => {
   switch (status) {
@@ -70,50 +69,27 @@ const formatStatus = (status: string | null) => {
 
 const ProjectList = () => {
   const navigate = useNavigate();
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  
+  const filteredProjects = useAppSelector(selectFilteredProjects);
+  const isLoading = useAppSelector((state) => state.projects.isLoading);
+  const error = useAppSelector((state) => state.projects.error);
+  const statusFilter = useAppSelector((state) => state.projects.statusFilter);
+  const searchTerm = useAppSelector((state) => state.projects.searchTerm);
 
   useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        console.log('Fetching projects...');
-        const response = await fetch('http://localhost:8080/api/projects', {
-          credentials: 'include'
-        });
+    dispatch(fetchProjects());
+  }, [dispatch]);
 
-        console.log('Response status:', response.status);
-        const responseText = await response.text();
-        console.log('Response text:', responseText);
+  const handleStatusFilterChange = (event: any) => {
+    dispatch(setStatusFilter(event.target.value));
+  };
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch projects: ${response.status} ${response.statusText}`);
-        }
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch(setSearchTerm(event.target.value));
+  };
 
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          console.error('Failed to parse JSON:', parseError);
-          throw new Error('Invalid JSON response from server');
-        }
-
-        console.log('Parsed projects:', data);
-        setProjects(data);
-        setError(null);
-      } catch (err) {
-        console.error('Error fetching projects:', err);
-        setError(err instanceof Error ? err.message : 'An error occurred while fetching projects');
-        setProjects([]); // Reset projects on error
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProjects();
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return (
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
@@ -144,6 +120,37 @@ const ProjectList = () => {
         </Alert>
       )}
 
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6}>
+          <TextField
+            fullWidth
+            label="Search projects"
+            variant="outlined"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by title or description"
+          />
+        </Grid>
+        <Grid item xs={12} sm={6}>
+          <FormControl fullWidth>
+            <InputLabel id="status-filter-label">Status Filter</InputLabel>
+            <Select
+              labelId="status-filter-label"
+              value={statusFilter}
+              label="Status Filter"
+              onChange={handleStatusFilterChange}
+            >
+              <MenuItem value="ALL">All Statuses</MenuItem>
+              {Object.values(ProjectStatus).map((status) => (
+                <MenuItem key={status} value={status}>
+                  {formatStatus(status)}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Grid>
+      </Grid>
+
       <TableContainer component={Paper}>
         <Table>
           <TableHead>
@@ -160,16 +167,19 @@ const ProjectList = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {(!projects || projects.length === 0) ? (
+            {(!filteredProjects || filteredProjects.length === 0) ? (
               <TableRow>
                 <TableCell colSpan={9} align="center">
                   <Typography variant="body1" color="textSecondary">
-                    {error ? 'Error loading projects' : 'No projects found. Create your first project!'}
+                    {error ? 'Error loading projects' : 
+                     searchTerm || statusFilter !== 'ALL' ? 
+                     'No projects match the current filters' : 
+                     'No projects found. Create your first project!'}
                   </Typography>
                 </TableCell>
               </TableRow>
             ) : (
-              projects.map((project) => (
+              filteredProjects.map((project) => (
                 <TableRow key={project.id}>
                   <TableCell>{project.title}</TableCell>
                   <TableCell>{project.description}</TableCell>

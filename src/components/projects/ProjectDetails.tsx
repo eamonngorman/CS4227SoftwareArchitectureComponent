@@ -16,42 +16,27 @@ import {
   DialogContent,
   DialogActions,
   DialogContentText,
-  TextField
 } from '@mui/material';
+import { useAppDispatch, useAppSelector } from '../../types/store';
+import { 
+  fetchProjectById, 
+  deleteProject, 
+  selectProjectById 
+} from '../../store/projectsSlice';
+import { Project, ProjectStatus } from '../../types/project';
 import StatusHistoryList from './StatusHistoryList';
 
-interface Project {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  startDate: string;
-  endDate: string;
-  deadline: string | null;
-  deadlineStatus: 'NO_DEADLINE' | 'ON_TRACK' | 'APPROACHING' | 'OVERDUE' | null;
-  owner: {
-    id: number;
-    username: string;
-  };
-  createdAt: string;
-  updatedAt: string;
-}
-
-const getStatusColor = (status: string) => {
+const getStatusColor = (status: ProjectStatus) => {
   switch (status) {
-    case 'DRAFT':
-      return 'default';
-    case 'IN_REVIEW':
+    case ProjectStatus.PENDING:
       return 'warning';
-    case 'APPROVED':
-      return 'success';
-    case 'IN_PROGRESS':
+    case ProjectStatus.IN_PROGRESS:
       return 'info';
-    case 'COMPLETED':
+    case ProjectStatus.COMPLETED:
       return 'success';
-    case 'ON_HOLD':
+    case ProjectStatus.ON_HOLD:
       return 'warning';
-    case 'CANCELLED':
+    case ProjectStatus.CANCELLED:
       return 'error';
     default:
       return 'default';
@@ -87,48 +72,32 @@ const formatDate = (dateString: string) => {
 const ProjectDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [project, setProject] = useState<Project | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const dispatch = useAppDispatch();
+  const projectId = id ? parseInt(id) : 0;
+  
+  const project = useAppSelector((state) => selectProjectById(projectId)(state));
+  const isLoading = useAppSelector((state) => state.projects.isLoading);
+  const error = useAppSelector((state) => state.projects.error);
+  
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   useEffect(() => {
-    const fetchProjectDetails = async () => {
-      try {
-        const response = await fetch(`http://localhost:8080/api/projects/${id}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch project details');
-        }
-        const data = await response.json();
-        setProject(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'An error occurred');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchProjectDetails();
-  }, [id]);
+    if (projectId) {
+      dispatch(fetchProjectById(projectId));
+    }
+  }, [dispatch, projectId]);
 
   const handleDelete = async () => {
     try {
-      const response = await fetch(`http://localhost:8080/api/projects/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete project');
-      }
-
+      await dispatch(deleteProject(projectId)).unwrap();
       navigate('/projects', { state: { message: 'Project deleted successfully' } });
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Failed to delete project');
+      // Error handling is managed by Redux
     }
+    setDeleteDialogOpen(false);
   };
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="60vh">
         <CircularProgress />
@@ -154,9 +123,6 @@ const ProjectDetails = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      {deleteError && (
-        <Alert severity="error" sx={{ mb: 2 }}>{deleteError}</Alert>
-      )}
       <Paper sx={{ p: 4 }}>
         <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={3}>
           <Box>
@@ -169,12 +135,28 @@ const ProjectDetails = () => {
               sx={{ mb: 2 }}
             />
           </Box>
-          <Button
-            variant="outlined"
-            onClick={() => navigate('/projects')}
-          >
-            Back to Projects
-          </Button>
+          <Box display="flex" gap={2}>
+            <Button
+              variant="outlined"
+              color="primary"
+              onClick={() => navigate(`/projects/${project.id}/edit`)}
+            >
+              Edit Project
+            </Button>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              Delete Project
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/projects')}
+            >
+              Back to Projects
+            </Button>
+          </Box>
         </Box>
 
         <Grid container spacing={4}>
@@ -232,6 +214,13 @@ const ProjectDetails = () => {
                 </Box>
               </Grid>
             </Grid>
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="h6" gutterBottom>
+              Status History
+            </Typography>
+            <StatusHistoryList projectId={project.id} />
           </Grid>
 
           <Grid item xs={12} md={4}>
@@ -248,7 +237,7 @@ const ProjectDetails = () => {
               </Typography>
 
               <Typography variant="subtitle2" color="text.secondary">
-                Created
+                Created At
               </Typography>
               <Typography paragraph>
                 {formatDate(project.createdAt)}
@@ -261,39 +250,6 @@ const ProjectDetails = () => {
                 {formatDate(project.updatedAt)}
               </Typography>
             </Paper>
-
-            <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-              <Button
-                variant="contained"
-                color="primary"
-                fullWidth
-                onClick={() => {
-                  const editPath = `/projects/${id}/edit`;
-                  console.log('Current project ID:', id);
-                  console.log('Attempting navigation to:', editPath);
-                  navigate(editPath, {
-                    state: { project },
-                    replace: false
-                  });
-                }}
-              >
-                Edit Project
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                fullWidth
-                onClick={() => setDeleteDialogOpen(true)}
-              >
-                Delete Project
-              </Button>
-            </Box>
-          </Grid>
-        </Grid>
-
-        <Grid container spacing={2}>
-          <Grid item xs={12}>
-            <StatusHistoryList projectId={Number(id)} />
           </Grid>
         </Grid>
       </Paper>
@@ -310,7 +266,7 @@ const ProjectDetails = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleDelete} color="error" variant="contained">
+          <Button onClick={handleDelete} color="error" autoFocus>
             Delete
           </Button>
         </DialogActions>
